@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f8fafc">
+  <title>Notes App</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app-container" class="app-container">
+    <!-- Brand / Header Section -->
+    <header class="app-header">
+      <div class="logo-mark">
+        <!-- SVG Note Icon -->
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+      </div>
+      <h1>Notes App</h1>
+      <p class="subtitle">Simple, lively note-taking</p>
+    </header>
+
+    <!-- Global Feedback Banner (Error & Success Messages) -->
+    <div id="message-banner" class="message-banner hidden" role="alert" aria-live="assertive"></div>
+
+    <!-- VIEW 1: AUTHENTICATION CONTAINER (Shown when NOT logged in) -->
+    <main id="auth-view" class="card">
+      <!-- Tab Navigation to switch between Sign In and Sign Up -->
+      <nav class="auth-tabs" role="tablist">
+        <button id="tab-login" class="tab-btn active" role="tab" aria-selected="true" type="button">
+          Log In
+        </button>
+        <button id="tab-signup" class="tab-btn" role="tab" aria-selected="false" type="button">
+          Sign Up
+        </button>
+      </nav>
+
+      <!-- Log In Form -->
+      <form id="login-form" class="auth-form" autocomplete="on">
+        <div class="form-group">
+          <label for="login-email">Email Address</label>
+          <input 
+            type="email" 
+            id="login-email" 
+            placeholder="you@example.com" 
+            required 
+            autocomplete="email"
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="login-password">Password</label>
+          <input 
+            type="password" 
+            id="login-password" 
+            placeholder="••••••••" 
+            required 
+            autocomplete="current-password"
+          >
+        </div>
+
+        <button type="submit" id="login-submit-btn" class="btn btn-primary">
+          Log In
+        </button>
+
+        <p class="form-footer">
+          Don't have an account? 
+          <a href="#" id="switch-to-signup" class="link">Sign up</a>
+        </p>
+      </form>
+
+      <!-- Sign Up Form (hidden by default) -->
+      <form id="signup-form" class="auth-form hidden" autocomplete="on">
+        <div class="form-group">
+          <label for="signup-email">Email Address</label>
+          <input 
+            type="email" 
+            id="signup-email" 
+            placeholder="you@example.com" 
+            required 
+            autocomplete="email"
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="signup-password">Password</label>
+          <input 
+            type="password" 
+            id="signup-password" 
+            placeholder="At least 6 characters" 
+            minlength="6" 
+            required 
+            autocomplete="new-password"
+          >
+          <small class="field-hint">Must be at least 6 characters long</small>
+        </div>
+
+        <button type="submit" id="signup-submit-btn" class="btn btn-primary">
+          Create Account
+        </button>
+
+        <p class="form-footer">
+          Already have an account? 
+          <a href="#" id="switch-to-login" class="link">Log in</a>
+        </p>
+      </form>
+    </main>
+
+    <!-- VIEW 2: LOGGED-IN DASHBOARD VIEW (Shown when user IS logged in) -->
+    <main id="dashboard-view" class="dashboard-view hidden">
+      <!-- User Profile Header Bar -->
+      <section class="card user-profile-bar">
+        <div class="user-info">
+          <div class="user-avatar-sm">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </div>
+          <p class="user-status-text">
+            Logged in as <strong id="logged-in-user-email">user@example.com</strong>
+          </p>
+        </div>
+        <button id="logout-btn" class="btn btn-secondary btn-logout" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          Log Out
+        </button>
+      </section>
+
+      <!-- 1. Form to add a note (title and content) -->
+      <section class="card note-form-card">
+        <h2 class="section-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          Add a Note
+        </h2>
+        <form id="add-note-form" class="note-form">
+          <div class="form-group">
+            <label for="note-title-input">Title <span class="required-asterisk">*</span></label>
+            <input 
+              type="text" 
+              id="note-title-input" 
+              placeholder="e.g. Project Ideas, Grocery List..." 
+              required
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="note-content-input">Content</label>
+            <textarea 
+              id="note-content-input" 
+              placeholder="Write your note here..." 
+              rows="3"
+            ></textarea>
+          </div>
+
+          <button type="submit" id="add-note-submit-btn" class="btn btn-primary">
+            Add Note
+          </button>
+        </form>
+      </section>
+
+      <!-- 2. Notes List Section -->
+      <section class="notes-section">
+        <div class="notes-section-header">
+          <h2 class="section-title">My Notes</h2>
+          <span id="notes-count-badge" class="badge">0</span>
+        </div>
+
+        <!-- Loading State Indicator -->
+        <div id="notes-loading" class="card state-card">
+          <div class="spinner"></div>
+          <p>Loading your notes...</p>
+        </div>
+
+        <!-- Empty State Indicator ("No notes yet") -->
+        <div id="notes-empty" class="card state-card hidden">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+          <p class="state-title">No notes yet</p>
+          <p class="state-subtitle">Use the form above to write your first note!</p>
+        </div>
+
+        <!-- Dynamic Notes List Container (Rendered via textContent) -->
+        <div id="notes-list" class="notes-list"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Load Supabase JS client from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Load Project Configuration -->
+  <script src="config.js"></script>
+
+  <!-- Load Application Logic -->
+  <script src="app.js"></script>
+</body>
+</html>

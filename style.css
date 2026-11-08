@@ -1,0 +1,651 @@
+/* ==========================================================================
+   Notes App - Lively & Chill Light Theme
+   Stage 2: Authentication & Notes Management
+   Palette: Fresh White, Soft Ambient Glow & Chill Indigo Accent (#4f46e5)
+   ========================================================================== */
+
+/* Design Tokens & CSS Custom Properties */
+:root {
+  /* Canvas & Card Surfaces */
+  --bg-body: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-card-subtle: #f1f5f9;
+  --bg-input: #f8fafc;
+  --bg-input-focus: #ffffff;
+
+  /* Borders */
+  --border-subtle: #e2e8f0;
+  --border-input: #cbd5e1;
+  --border-focus: #4f46e5;
+
+  /* Single Accent Color: Lively & Chill Indigo/Iris */
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --accent-glow: rgba(79, 70, 229, 0.18);
+
+  /* Typography Colors */
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --text-faint: #94a3b8;
+
+  /* Feedback Colors (Soft, accessible pastels) */
+  --error-bg: #fef2f2;
+  --error-border: #fecaca;
+  --error-text: #991b1b;
+
+  --success-bg: #f0fdf4;
+  --success-border: #bbf7d0;
+  --success-text: #166534;
+
+  /* Radii & Transitions */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --transition-fast: 0.18s ease;
+  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+}
+
+/* Base Styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--bg-body);
+  /* Gentle, soothing warm & chill ambient gradient */
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(254, 215, 170, 0.35) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(224, 231, 255, 0.45) 0px, transparent 50%),
+    radial-gradient(at 50% 50%, rgba(254, 240, 138, 0.15) 0px, transparent 60%);
+  background-attachment: fixed;
+  color: var(--text-main);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem 1rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* App Container Wrapper */
+.app-container {
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  transition: max-width var(--transition-fast);
+}
+
+/* Expand container when logged in to give notes plenty of breathing room */
+.app-container.expanded {
+  max-width: 680px;
+}
+
+/* Header & Logo */
+.app-header {
+  text-align: center;
+}
+
+.logo-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 54px;
+  height: 54px;
+  border-radius: var(--radius-md);
+  /* Lively gradient badge: warm honey to chill indigo */
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.12) 0%, rgba(245, 158, 11, 0.15) 100%);
+  border: 1px solid rgba(79, 70, 229, 0.18);
+  color: var(--accent);
+  margin-bottom: 0.75rem;
+  box-shadow: 0 8px 20px -4px rgba(79, 70, 229, 0.12);
+  transition: transform var(--transition-fast);
+}
+
+.logo-mark:hover {
+  transform: rotate(-3deg) scale(1.05);
+}
+
+.app-header h1 {
+  font-size: 1.65rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-main);
+}
+
+.app-header .subtitle {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+}
+
+/* Card Container */
+.card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 2.25rem 2rem;
+  box-shadow: 
+    0 20px 45px -12px rgba(15, 23, 42, 0.08),
+    0 4px 12px rgba(15, 23, 42, 0.03);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Tab Switcher */
+.auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background-color: var(--bg-card-subtle);
+  border-radius: var(--radius-md);
+  padding: 4px;
+  margin-bottom: 1.75rem;
+  border: 1px solid var(--border-subtle);
+}
+
+.tab-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  font-weight: 600;
+  padding: 0.65rem 1rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.tab-btn:hover {
+  color: var(--text-main);
+}
+
+.tab-btn.active {
+  background-color: #ffffff;
+  color: var(--accent);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+}
+
+/* Form Styles */
+.auth-form,
+.note-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  text-align: left;
+}
+
+.form-group label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.required-asterisk {
+  color: #ef4444;
+}
+
+.form-group input,
+.note-form textarea {
+  background-color: var(--bg-input);
+  border: 1.5px solid var(--border-input);
+  border-radius: var(--radius-md);
+  padding: 0.8rem 1rem;
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 0.95rem;
+  outline: none;
+  transition: all var(--transition-fast);
+  width: 100%;
+}
+
+.note-form textarea {
+  resize: vertical;
+  min-height: 85px;
+  line-height: 1.5;
+}
+
+.form-group input:focus,
+.note-form textarea:focus {
+  background-color: var(--bg-input-focus);
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.form-group input::placeholder,
+.note-form textarea::placeholder {
+  color: var(--text-faint);
+}
+
+.field-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.85rem 1.25rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  border: none;
+  transition: all var(--transition-fast);
+  text-decoration: none;
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.btn-primary {
+  background-color: var(--accent);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.25);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--accent-hover);
+  box-shadow: 0 6px 18px rgba(79, 70, 229, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-secondary {
+  background-color: #ffffff;
+  border: 1.5px solid var(--border-input);
+  color: #334155;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: var(--bg-card-subtle);
+  border-color: #94a3b8;
+  color: var(--text-main);
+}
+
+.btn-danger {
+  background-color: #fef2f2;
+  border: 1.5px solid #fecaca;
+  color: #b91c1c;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background-color: #fee2e2;
+  border-color: #f87171;
+  color: #991b1b;
+  transform: translateY(-1px);
+}
+
+.btn-sm {
+  width: auto;
+  margin-top: 0;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.84rem;
+  border-radius: var(--radius-sm);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Form Footer Links */
+.form-footer {
+  text-align: center;
+  font-size: 0.86rem;
+  color: var(--text-muted);
+  margin-top: 0.5rem;
+}
+
+.link {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+  transition: text-decoration var(--transition-fast);
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+/* Feedback Message Banner (Success & Error) */
+.message-banner {
+  padding: 0.95rem 1.15rem;
+  border-radius: var(--radius-md);
+  font-size: 0.88rem;
+  font-weight: 500;
+  text-align: left;
+  line-height: 1.45;
+  border: 1px solid transparent;
+  animation: fadeIn 0.22s ease-out;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* Smooth fade out when auto-dismissing notifications */
+.message-banner.fade-out {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+.message-banner.error {
+  background-color: var(--error-bg);
+  border-color: var(--error-border);
+  color: var(--error-text);
+}
+
+.message-banner.success {
+  background-color: var(--success-bg);
+  border-color: var(--success-border);
+  color: var(--success-text);
+}
+
+/* ==========================================================================
+   Dashboard & Notes Views
+   ========================================================================== */
+
+.dashboard-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+/* Top Profile Bar */
+.user-profile-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.user-avatar-sm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #eef2ff 0%, #fef3c7 100%);
+  border: 1.5px solid var(--accent);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.user-status-text {
+  font-size: 0.92rem;
+  color: var(--text-muted);
+  word-break: break-all;
+}
+
+.user-status-text strong {
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.btn-logout {
+  width: auto;
+  margin-top: 0;
+  padding: 0.5rem 0.95rem;
+  font-size: 0.86rem;
+}
+
+/* Section Title */
+.section-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Note Creation Card */
+.note-form-card {
+  padding: 1.75rem 2rem;
+}
+
+.note-form-card .section-title {
+  margin-bottom: 1.25rem;
+}
+
+/* Notes List Section */
+.notes-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.notes-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 0.25rem;
+}
+
+.badge {
+  background: #eef2ff;
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.2rem 0.7rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(79, 70, 229, 0.2);
+}
+
+/* State Cards (Loading & Empty States) */
+.state-card {
+  text-align: center;
+  padding: 2.75rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--text-muted);
+}
+
+.state-card svg {
+  color: var(--accent);
+  margin-bottom: 0.25rem;
+}
+
+.state-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.state-subtitle {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
+/* Loading Spinner */
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e2e8f0;
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 0.25rem;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Notes List & Cards */
+.notes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.note-card {
+  padding: 1.5rem 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.note-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 20px 40px -12px rgba(15, 23, 42, 0.1),
+    0 4px 12px rgba(15, 23, 42, 0.04);
+}
+
+.note-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.note-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-main);
+  word-break: break-word;
+  flex: 1;
+  min-width: 160px;
+}
+
+.note-date {
+  font-size: 0.78rem;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.note-content {
+  font-size: 0.95rem;
+  color: #334155;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.note-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 0.25rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* Inline Edit Note Form */
+.edit-note-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  width: 100%;
+}
+
+.edit-note-form input,
+.edit-note-form textarea {
+  background-color: var(--bg-input-focus);
+  border: 1.5px solid var(--border-input);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 0.9rem;
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: var(--text-main);
+  outline: none;
+  width: 100%;
+  transition: all var(--transition-fast);
+}
+
+.edit-note-form textarea {
+  resize: vertical;
+  min-height: 80px;
+  line-height: 1.5;
+}
+
+.edit-note-form input:focus,
+.edit-note-form textarea:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+/* Utility Helpers */
+.hidden {
+  display: none !important;
+}
+
+/* Subtle animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Mobile Responsive Media Query */
+@media (max-width: 600px) {
+  body {
+    padding: 1.25rem 0.75rem;
+    align-items: flex-start;
+  }
+
+  .card,
+  .note-form-card,
+  .note-card {
+    padding: 1.5rem 1.25rem;
+    border-radius: var(--radius-md);
+  }
+
+  .user-profile-bar {
+    padding: 1rem 1.25rem;
+  }
+
+  .app-header h1 {
+    font-size: 1.45rem;
+  }
+
+  .note-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+}
