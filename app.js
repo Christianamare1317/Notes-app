@@ -444,20 +444,136 @@ async function handleLogout() {
 
 
 // ============================================================================
-// 5. Notes Feature (CRUD Operations)
+// 5. Notes & File Attachments Feature (CRUD & Storage Operations)
 // ============================================================================
 
+// Storage & Attachment Constants
+const STORAGE_BUCKET = "note-files";
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+const ALLOWED_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "pdf"];
+const ALLOWED_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf"
+];
+
 /**
- * Load notes for the authenticated user, newest first.
+ * Extract lowercase file extension from a filename.
+ * @param {string} filename 
+ * @returns {string}
+ */
+function getFileExtension(filename) {
+  if (!filename || typeof filename !== "string") return "";
+  const parts = filename.split(".");
+  return parts.length > 1 ? parts.pop().toLowerCase() : "";
+}
+
+/**
+ * Format bytes into human-readable file size string (B, KB, MB).
+ * @param {number} bytes 
+ * @returns {string}
+ */
+function formatFileSize(bytes) {
+  if (!bytes || bytes === 0) return "0 B";
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+}
+
+/**
+ * Generate a random UUID string (RFC4122 v4 compliant).
+ * @returns {string}
+ */
+function generateUUID() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+/**
+ * Check if a file is an image based on its mime type or extension.
+ * @param {string} mimeType 
+ * @param {string} filename 
+ * @returns {boolean}
+ */
+function isImageFile(mimeType, filename) {
+  if (mimeType && mimeType.startsWith("image/")) return true;
+  const ext = getFileExtension(filename);
+  return ["jpg", "jpeg", "png", "webp"].includes(ext);
+}
+
+/**
+ * Validate attachment file type and size.
+ * Allows only JPG, PNG, WebP, and PDF up to 5 MB.
+ * @param {File} file 
+ * @returns {{ valid: boolean, error?: string }}
+ */
+function validateAttachmentFile(file) {
+  if (!file) {
+    return { valid: false, error: "No file selected." };
+  }
+
+  // Check file size (up to 5 MB)
+  if (file.size > MAX_FILE_SIZE_BYTES) {
+    return {
+      valid: false,
+      error: `File "${file.name}" exceeds the 5 MB limit (${formatFileSize(file.size)}). Please choose a smaller file.`
+    };
+  }
+
+  // Check file extension and MIME type
+  const extension = getFileExtension(file.name);
+  const isAllowedExt = ALLOWED_EXTENSIONS.includes(extension);
+  const isAllowedMime = ALLOWED_MIME_TYPES.includes(file.type) || isAllowedExt;
+
+  if (!isAllowedExt || !isAllowedMime) {
+    return {
+      valid: false,
+      error: `Invalid file type for "${file.name}". Only JPG, PNG, WebP, and PDF files are allowed.`
+    };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Obtain a signed URL for a private storage file with a one-hour expiry.
+ * @param {string} filePath 
+ * @returns {Promise<string|null>}
+ */
+async function getSignedAttachmentUrl(filePath) {
+  try {
+    // createSignedUrl with 3600 seconds (1 hour) expiry
+    const { data, error } = await supabaseClient.storage
+      .from(STORAGE_BUCKET)
+      .createSignedUrl(filePath, 3600);
+
+    if (error || !data) {
+      console.error("Error creating signed URL:", error);
+      return null;
+    }
+    return data.signedUrl;
+  } catch (err) {
+    console.error("Signed URL exception:", err);
+    return null;
+  }
+}
+
+/**
+ * Load notes and their attachments for the authenticated user, newest first.
  * RULE 3: Shows loading state and empty state ("No notes yet").
  * Prevents race conditions and protects in-progress edits from being wiped.
  */
 async function loadNotes() {
-  // Prevent duplicate concurrent requests
   if (isLoadingNotes) return;
   isLoadingNotes = true;
 
-  // Show loading indicator only if list is empty
   if (userNotes.length === 0) {
     notesLoading.classList.remove("hidden");
     notesEmpty.classList.add("hidden");
@@ -465,22 +581,36 @@ async function loadNotes() {
   }
 
   try {
-    // Supabase Row Level Security (RLS) ensures users only retrieve their own notes.
-    // Query ordered newest first by created_at.
-    const { data, error } = await supabaseClient
+    // 1. Fetch user's notes ordered newest first (created_at DESC)
+    const { data: notesData, error: notesError } = await supabaseClient
       .from("notes")
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (error) {
-      throw error;
+    if (notesError) {
+      throw notesError;
     }
 
-    userNotes = data || [];
+    // 2. Fetch attachments from note_files table
+    const { data: filesData, error: filesError } = await supabaseClient
+      .from("note_files")
+      .select("*")
+      .order("created_at", { ascending: true });
 
-    // If the user is currently editing a note, do not wipe out their active edit form!
+    if (filesError) {
+      console.warn("Could not load note attachments:", filesError.message);
+    }
+
+    const allFiles = filesData || [];
+
+    // 3. Associate attachments with each note
+    userNotes = (notesData || []).map((note) => {
+      note.files = allFiles.filter((f) => f.note_id === note.id);
+      return note;
+    });
+
     if (!currentlyEditingNoteId) {
-      renderNotesList();
+      await renderNotesList();
     } else {
       notesCountBadge.textContent = userNotes.length;
     }
@@ -498,44 +628,43 @@ async function loadNotes() {
  * RULE 3: Shows empty state ("No notes yet") if userNotes is empty.
  * RULE 4: Uses textContent to safely render all text without running HTML.
  */
-function renderNotesList() {
+async function renderNotesList() {
   notesList.innerHTML = "";
   notesCountBadge.textContent = userNotes.length;
 
   if (userNotes.length === 0) {
-    // RULE 3: Show empty state containing exact text "No notes yet"
     notesEmpty.classList.remove("hidden");
   } else {
     notesEmpty.classList.add("hidden");
-    userNotes.forEach((note) => {
-      const noteElement = createNoteElement(note);
+    for (const note of userNotes) {
+      const noteElement = await createNoteElement(note);
       notesList.appendChild(noteElement);
-    });
+    }
   }
 }
 
 /**
  * Create a note card DOM element in view mode.
  * RULE 4: Displays title, content, and date using textContent, never innerHTML.
- * @param {object} note - Note object { id, title, content, created_at, updated_at }
- * @returns {HTMLElement}
+ * @param {object} note - Note object with attachments { id, title, content, created_at, updated_at, files }
+ * @returns {Promise<HTMLElement>}
  */
-function createNoteElement(note) {
+async function createNoteElement(note) {
   const card = document.createElement("article");
   card.className = "card note-card";
   card.dataset.id = note.id;
 
-  renderNoteView(card, note);
+  await renderNoteView(card, note);
   return card;
 }
 
 /**
- * Render the default view state of a note card.
+ * Render the default view state of a note card including attachments.
  * @param {HTMLElement} card - Note card container
  * @param {object} note - Note data
  */
-function renderNoteView(card, note) {
-  card.innerHTML = ""; // Clear existing contents (e.g. if switching back from edit form)
+async function renderNoteView(card, note) {
+  card.innerHTML = ""; // Clear existing contents
 
   // Header: Title & Last Edited Time
   const header = document.createElement("div");
@@ -548,7 +677,6 @@ function renderNoteView(card, note) {
 
   const dateEl = document.createElement("time");
   dateEl.className = "note-date";
-  // Shows last edited time using updated_at (fallback to created_at)
   const lastEdited = note.updated_at || note.created_at;
   dateEl.textContent = `Last edited: ${formatNoteDate(lastEdited)}`;
 
@@ -565,18 +693,51 @@ function renderNoteView(card, note) {
     card.appendChild(contentEl);
   }
 
-  // Action Buttons (Edit and Delete)
+  // Attachments Section
+  const attachmentsContainer = document.createElement("div");
+  attachmentsContainer.className = "note-attachments";
+  card.appendChild(attachmentsContainer);
+  await renderNoteAttachments(attachmentsContainer, note);
+
+  // Action Buttons Bar
   const actions = document.createElement("div");
   actions.className = "note-actions";
 
-  // Edit Button
+  // Left group: "Attach file" button and hidden file input
+  const actionsLeft = document.createElement("div");
+  actionsLeft.className = "note-actions-left";
+
+  const fileInput = document.createElement("input");
+  fileInput.type = "file";
+  fileInput.accept = ".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf";
+  fileInput.style.display = "none";
+
+  const attachBtn = document.createElement("button");
+  attachBtn.type = "button";
+  attachBtn.className = "btn btn-sm btn-attach";
+  attachBtn.innerHTML = `
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+    </svg>
+    <span>Attach file</span>
+  `;
+
+  attachBtn.addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", async () => {
+    await handleAttachFile(note, fileInput, attachBtn, attachmentsContainer);
+  });
+
+  actionsLeft.appendChild(fileInput);
+  actionsLeft.appendChild(attachBtn);
+  actions.appendChild(actionsLeft);
+
+  // Right group: Edit and Delete buttons
   const editBtn = document.createElement("button");
   editBtn.type = "button";
   editBtn.className = "btn btn-secondary btn-sm";
   editBtn.textContent = "Edit";
   editBtn.addEventListener("click", () => renderNoteEditForm(card, note));
 
-  // Delete Button with confirmation
   const deleteBtn = document.createElement("button");
   deleteBtn.type = "button";
   deleteBtn.className = "btn btn-danger btn-sm";
@@ -589,13 +750,342 @@ function renderNoteView(card, note) {
 }
 
 /**
+ * Render the attachments list (images as thumbnails, PDFs as links).
+ * Uses createSignedUrl with a one-hour expiry.
+ * Shows file names with textContent.
+ * @param {HTMLElement} container - Note attachments container
+ * @param {object} note - Note object
+ */
+async function renderNoteAttachments(container, note) {
+  container.innerHTML = "";
+  const files = note.files || [];
+
+  if (files.length === 0) {
+    container.classList.add("hidden");
+    return;
+  }
+
+  container.classList.remove("hidden");
+
+  // Section Header
+  const header = document.createElement("div");
+  header.className = "attachments-header";
+  header.innerHTML = `
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+    </svg>
+    <span>Attachments (${files.length})</span>
+  `;
+  container.appendChild(header);
+
+  // Grid for thumbnails and PDF cards
+  const grid = document.createElement("div");
+  grid.className = "attachments-grid";
+  container.appendChild(grid);
+
+  for (const file of files) {
+    const itemEl = await createAttachmentItem(note, file, container);
+    if (itemEl) {
+      grid.appendChild(itemEl);
+    }
+  }
+}
+
+/**
+ * Create an individual attachment element (Image thumbnail or PDF link).
+ * RULE: Shows file names with textContent, not innerHTML.
+ * RULE: Opens in a new tab with rel="noopener noreferrer".
+ * @param {object} note - Parent note
+ * @param {object} file - Attachment file row
+ * @param {HTMLElement} container - Attachments container for re-render
+ * @returns {Promise<HTMLElement>}
+ */
+async function createAttachmentItem(note, file, container) {
+  // Obtain signed URL with one-hour expiry (3600 seconds)
+  const signedUrl = await getSignedAttachmentUrl(file.file_path);
+
+  if (isImageFile(file.mime_type, file.file_name)) {
+    // -------------------------------------------------------------
+    // Image Attachment: Render as Thumbnail
+    // -------------------------------------------------------------
+    const imgCard = document.createElement("div");
+    imgCard.className = "attachment-img-card";
+
+    // Delete Button Overlay
+    const delBtn = document.createElement("button");
+    delBtn.type = "button";
+    delBtn.className = "attachment-delete-overlay";
+    delBtn.title = "Delete attachment";
+    delBtn.innerHTML = `
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    `;
+    delBtn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      await handleDeleteAttachment(note, file, imgCard, container);
+    });
+
+    // Image Link (opens full image in new tab with rel="noopener noreferrer")
+    const imgLink = document.createElement("a");
+    imgLink.className = "attachment-img-link";
+    imgLink.target = "_blank";
+    imgLink.rel = "noopener noreferrer";
+    if (signedUrl) {
+      imgLink.href = signedUrl;
+    }
+
+    const img = document.createElement("img");
+    img.className = "attachment-img-thumb";
+    if (signedUrl) {
+      img.src = signedUrl;
+    }
+    img.alt = file.file_name;
+    img.loading = "lazy";
+    imgLink.appendChild(img);
+
+    // Caption: Show file name safely with textContent
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "attachment-img-name";
+    nameSpan.textContent = file.file_name; // RULE: textContent
+    nameSpan.title = file.file_name;
+
+    imgCard.appendChild(delBtn);
+    imgCard.appendChild(imgLink);
+    imgCard.appendChild(nameSpan);
+
+    return imgCard;
+  } else {
+    // -------------------------------------------------------------
+    // PDF Attachment: Render as Link with File Name and Delete Button
+    // -------------------------------------------------------------
+    const pdfCard = document.createElement("div");
+    pdfCard.className = "attachment-pdf-card";
+
+    // Link: Opens PDF in new tab with rel="noopener noreferrer"
+    const pdfLink = document.createElement("a");
+    pdfLink.className = "attachment-pdf-link";
+    pdfLink.target = "_blank";
+    pdfLink.rel = "noopener noreferrer";
+    if (signedUrl) {
+      pdfLink.href = signedUrl;
+    }
+
+    // PDF Icon
+    pdfLink.innerHTML = `
+      <svg width="16" height="16" class="attachment-pdf-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+        <line x1="16" y1="13" x2="8" y2="13"></line>
+        <line x1="16" y1="17" x2="8" y2="17"></line>
+        <polyline points="10 9 9 9 8 9"></polyline>
+      </svg>
+    `;
+
+    // File Name Label (RULE: textContent)
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "attachment-pdf-name";
+    nameSpan.textContent = file.file_name; // RULE: textContent
+    nameSpan.title = file.file_name;
+    pdfLink.appendChild(nameSpan);
+
+    // File Size Label
+    if (file.size_bytes) {
+      const sizeSpan = document.createElement("span");
+      sizeSpan.className = "attachment-pdf-size";
+      sizeSpan.textContent = `(${formatFileSize(file.size_bytes)})`;
+      pdfLink.appendChild(sizeSpan);
+    }
+
+    // Delete Button per attachment
+    const delBtn = document.createElement("button");
+    delBtn.type = "button";
+    delBtn.className = "attachment-pdf-delete";
+    delBtn.title = "Delete attachment";
+    delBtn.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    `;
+    delBtn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      await handleDeleteAttachment(note, file, pdfCard, container);
+    });
+
+    pdfCard.appendChild(pdfLink);
+    pdfCard.appendChild(delBtn);
+
+    return pdfCard;
+  }
+}
+
+/**
+ * Handle uploading and attaching a file to a note.
+ * Checks file type and size (<= 5 MB).
+ * Uploads to {user id}/{note id}/{random uuid}.{extension}. Never uses original filename in path.
+ * Inserts row into note_files without sending user_id.
+ * @param {object} note - Note object
+ * @param {HTMLInputElement} fileInput - Hidden file input element
+ * @param {HTMLButtonElement} attachBtn - Attach file button
+ * @param {HTMLElement} attachmentsContainer - Container to re-render
+ */
+async function handleAttachFile(note, fileInput, attachBtn, attachmentsContainer) {
+  const file = fileInput.files && fileInput.files[0];
+  if (!file) return;
+
+  clearMessage();
+
+  // Validate type and size in JavaScript
+  const validation = validateAttachmentFile(file);
+  if (!validation.valid) {
+    showMessage(validation.error, "error");
+    fileInput.value = "";
+    return;
+  }
+
+  // Ensure current user is active
+  if (!currentUserId) {
+    showMessage("Please log in to attach files.", "error");
+    fileInput.value = "";
+    return;
+  }
+
+  setButtonLoading(attachBtn, true, "Attach file", "Uploading...");
+
+  try {
+    const extension = getFileExtension(file.name);
+    const randomUuid = generateUUID();
+
+    // RULE: Path structure: {user id}/{note id}/{random uuid}.{extension}
+    // Never use the original filename in the storage path.
+    const storagePath = `${currentUserId}/${note.id}/${randomUuid}.${extension}`;
+
+    // 1. Upload file to private Supabase Storage bucket 'note-files'
+    const { error: uploadError } = await supabaseClient.storage
+      .from(STORAGE_BUCKET)
+      .upload(storagePath, file, {
+        contentType: file.type || "application/octet-stream",
+        upsert: false
+      });
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    // 2. Insert row into note_files table
+    // RULE: Do not send user_id in the insert.
+    const { data: insertedRow, error: insertError } = await supabaseClient
+      .from("note_files")
+      .insert([
+        {
+          note_id: note.id,
+          file_path: storagePath,
+          file_name: file.name,
+          mime_type: file.type || "application/octet-stream",
+          size_bytes: file.size
+        }
+      ])
+      .select()
+      .single();
+
+    if (insertError) {
+      // Clean up uploaded file if database insert fails
+      await supabaseClient.storage.from(STORAGE_BUCKET).remove([storagePath]);
+      throw insertError;
+    }
+
+    // Add new attachment to note object
+    if (!note.files) {
+      note.files = [];
+    }
+    note.files.push(insertedRow);
+
+    // Update in userNotes cache
+    const cachedNote = userNotes.find((n) => n.id === note.id);
+    if (cachedNote) {
+      cachedNote.files = note.files;
+    }
+
+    // Re-render attachments section for this note
+    await renderNoteAttachments(attachmentsContainer, note);
+
+    showMessage(`"${file.name}" attached successfully!`, "success");
+  } catch (err) {
+    console.error("Error attaching file:", err);
+    showMessage(err.message || "Failed to attach file.", "error");
+  } finally {
+    fileInput.value = ""; // Reset input so same file can be selected again
+    setButtonLoading(attachBtn, false, "Attach file", "Uploading...");
+  }
+}
+
+/**
+ * Handle deleting a single attachment.
+ * Removes file from storage and deletes its row from note_files.
+ * @param {object} note - Parent note
+ * @param {object} file - Attachment row
+ * @param {HTMLElement} itemElement - DOM element of attachment
+ * @param {HTMLElement} container - Attachments container
+ */
+async function handleDeleteAttachment(note, file, itemElement, container) {
+  clearMessage();
+
+  const confirmed = window.confirm(`Delete attachment "${file.file_name}"?`);
+  if (!confirmed) return;
+
+  itemElement.style.opacity = "0.45";
+  itemElement.style.pointerEvents = "none";
+
+  try {
+    // 1. Remove file from storage
+    const { error: storageError } = await supabaseClient.storage
+      .from(STORAGE_BUCKET)
+      .remove([file.file_path]);
+
+    if (storageError) {
+      console.warn("Storage deletion warning:", storageError.message);
+    }
+
+    // 2. Delete row from note_files table
+    const { error: dbError } = await supabaseClient
+      .from("note_files")
+      .delete()
+      .eq("id", file.id);
+
+    if (dbError) {
+      throw dbError;
+    }
+
+    // Remove from note's local attachments array
+    note.files = (note.files || []).filter((f) => f.id !== file.id);
+
+    const cachedNote = userNotes.find((n) => n.id === note.id);
+    if (cachedNote) {
+      cachedNote.files = note.files;
+    }
+
+    // Re-render attachments
+    await renderNoteAttachments(container, note);
+
+    showMessage("Attachment deleted successfully!", "success");
+  } catch (err) {
+    console.error("Error deleting attachment:", err);
+    showMessage(err.message || "Failed to delete attachment.", "error");
+    itemElement.style.opacity = "1";
+    itemElement.style.pointerEvents = "auto";
+  }
+}
+
+/**
  * Render an inline edit form inside the note card.
  * Tracks currentlyEditingNoteId so in-progress changes are never lost or overwritten.
  * @param {HTMLElement} card - Note card container
  * @param {object} note - Note data
  */
 function renderNoteEditForm(card, note) {
-  // Set tracking flag so background fetches cannot wipe out this edit
   currentlyEditingNoteId = note.id;
   card.innerHTML = ""; // Switch to edit form
 
@@ -709,14 +1199,13 @@ async function handleSaveNoteEdit(card, note, newTitle, newContent, saveBtn) {
       userNotes[index] = { ...note };
     }
 
-    // Clear editing lock
     currentlyEditingNoteId = null;
 
     // RULE 3: Show success message
     showMessage("Note updated successfully!", "success");
 
-    // Re-render card back to normal view
-    renderNoteView(card, note);
+    // Re-render card back to normal view with updated details
+    await renderNoteView(card, note);
   } catch (err) {
     console.error("Error saving note:", err);
     showMessage(err.message || "Failed to update note.", "error");
@@ -768,10 +1257,12 @@ async function handleAddNote(event) {
     // RULE 3: Show success message
     showMessage("Note added successfully!", "success");
 
-    // Prepend newly created note
+    // Prepend newly created note with empty files array
     if (data && data.length > 0) {
-      userNotes.unshift(data[0]);
-      renderNotesList();
+      const newNote = data[0];
+      newNote.files = [];
+      userNotes.unshift(newNote);
+      await renderNotesList();
     } else {
       await loadNotes();
     }
@@ -785,19 +1276,18 @@ async function handleAddNote(event) {
 
 /**
  * Handle note deletion with confirmation dialog.
+ * RULE: When a note is deleted, first remove all its files from storage, then delete the note.
  * @param {string|number} noteId - ID of note to delete
  * @param {HTMLButtonElement} deleteBtn - Delete button element
  */
 async function handleDeleteNote(noteId, deleteBtn) {
   clearMessage();
 
-  // Requirement 4: Confirmation before deleting
-  const confirmed = window.confirm("Are you sure you want to delete this note?");
+  const confirmed = window.confirm("Are you sure you want to delete this note and all its attachments?");
   if (!confirmed) {
     return;
   }
 
-  // Clear editing lock if this note was being edited
   if (currentlyEditingNoteId === noteId) {
     currentlyEditingNoteId = null;
   }
@@ -805,23 +1295,56 @@ async function handleDeleteNote(noteId, deleteBtn) {
   setButtonLoading(deleteBtn, true, "Delete", "Deleting...");
 
   try {
-    const { error } = await supabaseClient
+    // 1. FIRST: Remove all files belonging to this note from storage
+    const note = userNotes.find((n) => n.id === noteId);
+    let noteFiles = (note && note.files) ? note.files : [];
+
+    // Fallback: If not in local cache, query note_files table
+    if (noteFiles.length === 0) {
+      const { data: dbFiles } = await supabaseClient
+        .from("note_files")
+        .select("id, file_path")
+        .eq("note_id", noteId);
+      if (dbFiles) {
+        noteFiles = dbFiles;
+      }
+    }
+
+    if (noteFiles.length > 0) {
+      const filePaths = noteFiles.map((f) => f.file_path);
+      const { error: storageError } = await supabaseClient.storage
+        .from(STORAGE_BUCKET)
+        .remove(filePaths);
+
+      if (storageError) {
+        console.warn("Storage deletion warning:", storageError.message);
+      }
+
+      // Delete note_files rows
+      await supabaseClient
+        .from("note_files")
+        .delete()
+        .eq("note_id", noteId);
+    }
+
+    // 2. THEN: Delete the note from notes table
+    const { error: noteError } = await supabaseClient
       .from("notes")
       .delete()
       .eq("id", noteId);
 
-    if (error) {
-      throw error;
+    if (noteError) {
+      throw noteError;
     }
 
     // Remove from in-memory array
     userNotes = userNotes.filter((n) => n.id !== noteId);
 
     // Re-render notes list
-    renderNotesList();
+    await renderNotesList();
 
     // RULE 3: Show success message
-    showMessage("Note deleted successfully!", "success");
+    showMessage("Note and all attachments deleted successfully!", "success");
   } catch (err) {
     console.error("Error deleting note:", err);
     showMessage(err.message || "Failed to delete note.", "error");
