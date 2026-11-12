@@ -1,4 +1,4 @@
-# Notes Web App - Stage 3 (Authentication, Notes CRUD & File Attachments)
+# Notes Web App - Stage 4 (Authentication, Google OAuth, Notes CRUD & File Attachments)
 
 A clean, lively, and chill notes web application built with plain **HTML, CSS, and vanilla JavaScript** (no React, no build tools, no frameworks) powered by **Supabase**.
 
@@ -6,10 +6,10 @@ A clean, lively, and chill notes web application built with plain **HTML, CSS, a
 
 ## 📁 Project Structure & File Roles
 
-- [**`index.html`**](file:///c:/Users/hp/Desktop/Notes-app/index.html): Defines the structure for both the Authentication screen (Log In / Sign Up tabs) and the Notes Dashboard (user status bar, note creation form, loading/empty state indicators, and notes list container).
-- [**`style.css`**](file:///c:/Users/hp/Desktop/Notes-app/style.css): Houses the lively and chill light theme design tokens, responsive layouts, note card styling, image thumbnails, and PDF attachment cards.
+- [**`index.html`**](file:///c:/Users/hp/Desktop/Notes-app/index.html): Defines the structure for both the Authentication screen (Log In / Sign Up tabs and "Continue with Google" OAuth button) and the Notes Dashboard (user status bar, note creation form, loading/empty state indicators, and notes list container).
+- [**`style.css`**](file:///c:/Users/hp/Desktop/Notes-app/style.css): Houses the lively and chill light theme design tokens, responsive layouts, note card styling, Google OAuth button, image thumbnails, and PDF attachment cards.
 - [**`config.js`**](file:///c:/Users/hp/Desktop/Notes-app/config.js): Stores the Supabase project URL and anon publishable key safely for client-side execution.
-- [**`app.js`**](file:///c:/Users/hp/Desktop/Notes-app/app.js): Contains all application logic: Supabase client initialization, authentication handlers, CRUD notes management, file attachment upload/download with private signed URLs, and file deletion.
+- [**`app.js`**](file:///c:/Users/hp/Desktop/Notes-app/app.js): Contains all application logic: Supabase client initialization, email auth and Google OAuth handlers, CRUD notes management, file attachment upload/download with private signed URLs, and file deletion.
 - [**`README.md`**](file:///c:/Users/hp/Desktop/Notes-app/README.md): Documentation and user guide.
 
 ---
@@ -30,26 +30,28 @@ Then visit [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## 🔑 Features & Compliance with Rules
 
-1. **File Attachments via Private Supabase Storage**:
+1. **Google OAuth ("Continue with Google")**:
+   - Uses `supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })`.
+   - Accessible from both the Log In and Sign Up tabs with a clean divider.
+   - Shows loading feedback while redirecting and clear error alerts if canceled or rejected.
+   - Restores session automatically upon return using existing `onAuthStateChange` and `getSession()` listeners.
+   - **Frontend Security**: Operates strictly with the Supabase anon publishable key. Never includes any Google client secret in the code (Google credentials belong exclusively in the Supabase Dashboard under Authentication → Providers → Google).
+2. **File Attachments via Private Supabase Storage**:
    - Uses the private bucket `note-files`.
    - Stores file metadata in the `note_files` table (`id, note_id, user_id, file_path, file_name, mime_type, size_bytes, created_at`).
    - Generates private signed URLs with a **one-hour expiry** via `createSignedUrl()`.
-2. **File Validation**:
-   - Allows only **JPG, PNG, WebP, and PDF** files.
-   - Restricts file sizes to **5 MB**.
+3. **File Validation**:
+   - Allows only **JPG, PNG, WebP, and PDF** files up to **5 MB**.
    - Validates in JavaScript and displays clear user error messages.
-3. **Safe Storage Path**:
+4. **Safe Storage Path**:
    - Path format: `{user id}/{note id}/{random uuid}.{extension}`.
    - Never uses original file names in storage paths.
    - Original file names are stored safely in `note_files.file_name`.
-   - **Never sends `user_id`** in `note_files` insert (handled automatically by Supabase default/trigger).
-4. **Displaying Attachments**:
+   - **Never sends `user_id`** in `note_files` insert.
+5. **Displaying Attachments**:
    - Images are rendered as thumbnails that open the full image in a new tab.
    - PDFs are rendered as document cards that open in a new tab with `target="_blank"` and `rel="noopener noreferrer"`.
    - File names are rendered strictly with **`textContent`** (never `innerHTML`) to prevent XSS.
-5. **Per-Attachment Deletion**:
-   - Each attachment has its own delete button that removes the file from storage and deletes its row from `note_files`.
-6. **Cascade Cleanup on Note Deletion**:
+6. **Per-Attachment Deletion & Note Cleanup**:
+   - Each attachment has a delete button that removes the file from storage and deletes its database row.
    - When a note is deleted, all associated files are removed from Supabase storage first, then the note is deleted.
-7. **Frontend Security**:
-   - Operates exclusively with the publishable anon key.

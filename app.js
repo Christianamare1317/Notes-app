@@ -67,6 +67,10 @@ const signupPasswordInput = document.getElementById("signup-password");
 const loginSubmitBtn = document.getElementById("login-submit-btn");
 const signupSubmitBtn = document.getElementById("signup-submit-btn");
 
+// Social OAuth Elements
+const googleLoginBtn = document.getElementById("google-login-btn");
+const googleBtnText = document.getElementById("google-btn-text");
+
 // Dashboard / Profile Elements
 const loggedInUserEmail = document.getElementById("logged-in-user-email");
 const logoutBtn = document.getElementById("logout-btn");
@@ -439,6 +443,50 @@ async function handleLogout() {
     showMessage(error.message || "Failed to log out.", "error");
   } finally {
     setButtonLoading(logoutBtn, false, "Log Out", "Logging out...");
+  }
+}
+
+/**
+ * Handle OAuth sign-in with Google.
+ * Uses supabase.auth.signInWithOAuth.
+ * Never adds any Google client secret to the frontend code.
+ */
+async function handleGoogleLogin() {
+  clearMessage();
+
+  // Show loading state
+  if (googleLoginBtn) {
+    googleLoginBtn.disabled = true;
+  }
+  if (googleBtnText) {
+    googleBtnText.textContent = "Connecting to Google...";
+  }
+
+  try {
+    const { data, error } = await supabaseClient.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin
+      }
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    // Supabase will redirect the browser to Google for authentication.
+    // Upon return, existing session handling will automatically restore the logged-in state.
+  } catch (err) {
+    console.error("Google OAuth error:", err);
+    showMessage(err.message || "Failed to sign in with Google. Please try again.", "error");
+
+    // Reset button loading state on error
+    if (googleLoginBtn) {
+      googleLoginBtn.disabled = false;
+    }
+    if (googleBtnText) {
+      googleBtnText.textContent = "Continue with Google";
+    }
   }
 }
 
@@ -1379,22 +1427,30 @@ switchToLoginLink.addEventListener("click", (e) => {
 // Note Creation Form Submission
 addNoteForm.addEventListener("submit", handleAddNote);
 
+// Google OAuth Login Button Click
+if (googleLoginBtn) {
+  googleLoginBtn.addEventListener("click", handleGoogleLogin);
+}
+
 /**
  * Check if the browser URL contains auth tokens or errors from Supabase
- * (e.g. returning from email verification)
+ * (e.g. returning from email verification or Google OAuth redirect)
  */
 function checkUrlAuthFeedback() {
   const hash = window.location.hash.substring(1);
-  const params = new URLSearchParams(hash || window.location.search);
+  const search = window.location.search.substring(1);
+  const hashParams = new URLSearchParams(hash);
+  const searchParams = new URLSearchParams(search);
   
-  const errorDescription = params.get("error_description");
+  // Check for error descriptions in both hash fragments and query string
+  const errorDescription = hashParams.get("error_description") || searchParams.get("error_description");
   if (errorDescription) {
     showMessage(decodeURIComponent(errorDescription.replace(/\+/g, " ")), "error");
     history.replaceState(null, "", window.location.pathname);
     return;
   }
 
-  const type = params.get("type");
+  const type = hashParams.get("type") || searchParams.get("type");
   if (type === "signup" || type === "recovery") {
     showMessage("Email confirmed successfully! You can now log in.", "success");
     history.replaceState(null, "", window.location.pathname);
