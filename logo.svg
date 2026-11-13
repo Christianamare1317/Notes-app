@@ -1,0 +1,143 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="100%" height="100%" role="img" aria-label="Notes App Logo">
+  <defs>
+    <!-- Background Gradient: Lively Indigo to Deep Iris -->
+    <linearGradient id="logoBg" x1="14" y1="10" x2="114" y2="118" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#6366F1"/>
+      <stop offset="55%" stop-color="#4F46E5"/>
+      <stop offset="100%" stop-color="#3730A3"/>
+    </linearGradient>
+
+    <!-- Warm Amber / Gold Gradient for Idea Spark & Fold -->
+    <linearGradient id="logoGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE047"/>
+      <stop offset="50%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+
+    <!-- Paper Sheet Gradient -->
+    <linearGradient id="logoPage" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="70%" stop-color="#F8FAFC"/>
+      <stop offset="100%" stop-color="#EEF2F6"/>
+    </linearGradient>
+
+    <!-- Content Header Accent Bar Gradient -->
+    <linearGradient id="logoLine" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#6366F1"/>
+      <stop offset="100%" stop-color="#818CF8"/>
+    </linearGradient>
+
+    <!-- Soft Ambient Drop Shadows -->
+    <filter id="logoTileShadow" x="-15%" y="-10%" width="130%" height="135%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#1E1B4B" flood-opacity="0.28"/>
+    </filter>
+    
+    <filter id="logoPaperShadow" x="-15%" y="-15%" width="130%" height="130%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="3.5" stdDeviation="3.5" flood-color="#1E1B4B" flood-opacity="0.18"/>
+    </filter>
+
+    <!-- Golden Spark Ambient Glow -->
+    <filter id="logoSparkGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Main Squircle Tile Base -->
+  <rect x="6" y="6" width="116" height="116" rx="28" fill="url(#logoBg)" filter="url(#logoTileShadow)"/>
+  
+  <!-- Subtle Top Ambient Sheen Overlay -->
+  <path d="M 6 34 C 6 18.536 18.536 6 34 6 H 94 C 109.464 6 122 18.536 122 34 C 122 46 94 60 64 60 C 34 60 6 46 6 34 Z" 
+        fill="#FFFFFF" fill-opacity="0.08"/>
+
+  <!-- Crisp Tile Inner Border Highlight -->
+  <rect x="6.75" y="6.75" width="114.5" height="114.5" rx="27.25" fill="none" stroke="#FFFFFF" stroke-width="1.5" stroke-opacity="0.22"/>
+
+  <!-- Note Paper Sheet with Folded Dog-Ear Corner -->
+  <g filter="url(#logoPaperShadow)">
+    <path d="
+      M 39 26 
+      H 72 
+      L 96 50 
+      V 95 
+      C 96 98.866 92.866 102 89 102 
+      H 39 
+      C 35.134 102 32 98.866 32 95 
+      V 33 
+      C 32 29.134 35.134 26 39 26 
+      Z" 
+      fill="url(#logoPage)"/>
+    
+    <!-- Paper Inset Border -->
+    <path d="
+      M 39 26.75 
+      H 71.7 
+      L 95.25 50.3 
+      V 95 
+      C 95.25 98.45 92.45 101.25 89 101.25 
+      H 39 
+      C 35.55 101.25 32.75 98.45 32.75 95 
+      V 33 
+      C 32.75 29.55 35.55 26.75 39 26.75 
+      Z" 
+      fill="none" stroke="#FFFFFF" stroke-width="1"/>
+  </g>
+
+  <!-- Fold Under-Shadow -->
+  <path d="M 72 26 L 72 47 C 72 48.657 73.343 50 75 50 L 96 50 Z" 
+        fill="#0F172A" fill-opacity="0.14"/>
+
+  <!-- Folded Flap (Golden Accent) -->
+  <path d="
+    M 72 26 
+    L 96 50 
+    H 76 
+    C 73.791 50 72 48.209 72 46 
+    Z" 
+    fill="url(#logoGold)"/>
+
+  <!-- Fold Flap Edge Highlight -->
+  <path d="M 72 26 L 96 50" stroke="#FFFFFF" stroke-opacity="0.4" stroke-width="1.5" stroke-linecap="round"/>
+
+  <!-- Note Lines (Organized & Lively Thoughts) -->
+  <!-- Line 1: Primary Title Accent Bar (Indigo) -->
+  <rect x="41" y="40" width="24" height="5" rx="2.5" fill="url(#logoLine)"/>
+  
+  <!-- Line 2: Body text line (Slate 400) -->
+  <rect x="41" y="53" width="44" height="4.5" rx="2.25" fill="#94A3B8"/>
+  
+  <!-- Line 3: Body text line (Slate 300) -->
+  <rect x="41" y="64" width="38" height="4.5" rx="2.25" fill="#CBD5E1"/>
+
+  <!-- Line 4: Body text line (Slate 200) -->
+  <rect x="41" y="75" width="27" height="4.5" rx="2.25" fill="#E2E8F0"/>
+
+  <!-- Checkmark / Bullet Badge (Amber) -->
+  <circle cx="44.5" cy="87.5" r="2.5" fill="#F59E0B"/>
+  <rect x="50.5" y="85.5" width="18" height="4" rx="2" fill="#CBD5E1"/>
+
+  <!-- Radiant Golden Idea Sparks (Inspiration & Energy) -->
+  <!-- Primary Spark (Bottom-Right, overlapping paper edge) -->
+  <g filter="url(#logoSparkGlow)">
+    <path d="
+      M 94 75 
+      Q 94 85 84 85 
+      Q 94 85 94 95 
+      Q 94 85 104 85 
+      Q 94 85 94 75 
+      Z" 
+      fill="url(#logoGold)"/>
+    <!-- Glowing Core Center -->
+    <circle cx="94" cy="85" r="1.8" fill="#FFFFFF"/>
+  </g>
+
+  <!-- Secondary Mini Spark (Top-Right of Primary Spark) -->
+  <path d="
+    M 105 72 
+    Q 105 77 100 77 
+    Q 105 77 105 82 
+    Q 105 77 110 77 
+    Q 105 77 105 72 
+    Z" 
+    fill="url(#logoGold)" opacity="0.9"/>
+</svg>

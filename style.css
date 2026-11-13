@@ -95,20 +95,22 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 54px;
-  height: 54px;
-  border-radius: var(--radius-md);
-  /* Lively gradient badge: warm honey to chill indigo */
-  background: linear-gradient(135deg, rgba(79, 70, 229, 0.12) 0%, rgba(245, 158, 11, 0.15) 100%);
-  border: 1px solid rgba(79, 70, 229, 0.18);
-  color: var(--accent);
   margin-bottom: 0.75rem;
-  box-shadow: 0 8px 20px -4px rgba(79, 70, 229, 0.12);
-  transition: transform var(--transition-fast);
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.28s ease;
+  filter: drop-shadow(0 10px 20px rgba(79, 70, 229, 0.22));
+  cursor: default;
 }
 
 .logo-mark:hover {
-  transform: rotate(-3deg) scale(1.05);
+  transform: translateY(-2px) scale(1.06) rotate(-2deg);
+  filter: drop-shadow(0 14px 28px rgba(79, 70, 229, 0.35));
+}
+
+.brand-logo-img {
+  width: 56px;
+  height: 56px;
+  display: block;
+  user-select: none;
 }
 
 .app-header h1 {

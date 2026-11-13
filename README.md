@@ -8,6 +8,8 @@ A clean, lively, and chill notes web application built with plain **HTML, CSS, a
 
 - [**`index.html`**](file:///c:/Users/hp/Desktop/Notes-app/index.html): Defines the structure for both the Authentication screen (Log In / Sign Up tabs and "Continue with Google" OAuth button) and the Notes Dashboard (user status bar, note creation form, loading/empty state indicators, and notes list container).
 - [**`style.css`**](file:///c:/Users/hp/Desktop/Notes-app/style.css): Houses the lively and chill light theme design tokens, responsive layouts, note card styling, Google OAuth button, image thumbnails, and PDF attachment cards.
+- [**`logo.svg`**](file:///c:/Users/hp/Desktop/Notes-app/logo.svg) & [**`favicon.svg`**](file:///c:/Users/hp/Desktop/Notes-app/favicon.svg): Modern, high-craft brand logo and vector favicon featuring the folded note sheet, lively golden sunburst fold, and radiant inspiration sparks.
+- [**`favicon.ico`**](file:///c:/Users/hp/Desktop/Notes-app/favicon.ico) & [**`apple-touch-icon.png`**](file:///c:/Users/hp/Desktop/Notes-app/apple-touch-icon.png): Multi-resolution device and browser tab icons (16x16, 32x32, 48x48, 180x180, 512x512).
 - [**`config.js`**](file:///c:/Users/hp/Desktop/Notes-app/config.js): Stores the Supabase project URL and anon publishable key safely for client-side execution.
 - [**`app.js`**](file:///c:/Users/hp/Desktop/Notes-app/app.js): Contains all application logic: Supabase client initialization, email auth and Google OAuth handlers, CRUD notes management, file attachment upload/download with private signed URLs, and file deletion.
 - [**`README.md`**](file:///c:/Users/hp/Desktop/Notes-app/README.md): Documentation and user guide.
