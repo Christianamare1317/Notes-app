@@ -928,3 +928,81 @@ body {
     gap: 0.25rem;
   }
 }
+
+/* ==========================================================================
+   Local-First / Offline / Sync Status Styles
+   ========================================================================== */
+
+/* Note card with pending sync — faint left accent stripe */
+.note-pending-sync {
+  border-left: 3px solid rgba(245, 158, 11, 0.55) !important;
+}
+
+/* Offline / Pending badge inside note header */
+.sync-pending-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: #b45309;
+  background: rgba(251, 191, 36, 0.14);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: 20px;
+  padding: 2px 7px;
+  margin-bottom: 0.4rem;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+/* "Local" badge on unsynced attachment cards */
+.attachment-local-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #b45309;
+  background: rgba(251, 191, 36, 0.14);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: 20px;
+  padding: 1px 6px;
+  margin-left: 6px;
+  white-space: nowrap;
+}
+
+/* Sync Status Toast Chip (bottom-right corner) */
+.sync-status-chip {
+  position: fixed;
+  bottom: 1.25rem;
+  right: 1.25rem;
+  font-family: var(--font-family);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 0.5rem 0.95rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 16px -4px rgba(15, 23, 42, 0.18);
+  z-index: 9999;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.sync-status-chip.sync-info {
+  background: #4f46e5;
+  color: #fff;
+}
+
+.sync-status-chip.sync-error {
+  background: #b45309;
+  color: #fff;
+}
+
+.sync-status-chip.hidden {
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+}

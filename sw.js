@@ -8,13 +8,14 @@
  * - Safe bypass for Supabase backend APIs, Auth, and Storage endpoints
  */
 
-const CACHE_NAME = 'notes-app-cache-v1';
+const CACHE_NAME = 'notes-app-cache-v2';
 
 // Static App Shell assets to precache
 const PRECACHE_ASSETS = [
   './',
   './index.html',
   './style.css',
+  './db.js',
   './app.js',
   './config.js',
   './manifest.json',
