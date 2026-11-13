@@ -6,9 +6,12 @@ A clean, lively, and chill notes web application built with plain **HTML, CSS, a
 
 ## 📁 Project Structure & File Roles
 
-- [**`index.html`**](file:///c:/Users/hp/Desktop/Notes-app/index.html): Defines the structure for both the Authentication screen (Log In / Sign Up tabs and "Continue with Google" OAuth button) and the Notes Dashboard (user status bar, note creation form, loading/empty state indicators, and notes list container).
+- [**`index.html`**](file:///c:/Users/hp/Desktop/Notes-app/index.html): Defines the structure for both the Authentication screen (Log In / Sign Up tabs and "Continue with Google" OAuth button) and the Notes Dashboard (user status bar, note creation form, loading/empty state indicators, and notes list container). Also links the PWA manifest and registers the service worker.
 - [**`style.css`**](file:///c:/Users/hp/Desktop/Notes-app/style.css): Houses the lively and chill light theme design tokens, responsive layouts, note card styling, Google OAuth button, image thumbnails, and PDF attachment cards.
+- [**`manifest.json`**](file:///c:/Users/hp/Desktop/Notes-app/manifest.json): Web App Manifest for PWA installability on desktop and mobile devices.
+- [**`sw.js`**](file:///c:/Users/hp/Desktop/Notes-app/sw.js): Service Worker managing offline app shell caching and network fallback strategies.
 - [**`logo.svg`**](file:///c:/Users/hp/Desktop/Notes-app/logo.svg) & [**`favicon.svg`**](file:///c:/Users/hp/Desktop/Notes-app/favicon.svg): Modern, high-craft brand logo and vector favicon featuring the folded note sheet, lively golden sunburst fold, and radiant inspiration sparks.
+- [**`icon-192x192.png`**](file:///c:/Users/hp/Desktop/Notes-app/icon-192x192.png) & [**`icon-512x512.png`**](file:///c:/Users/hp/Desktop/Notes-app/icon-512x512.png): Standard PWA install icons.
 - [**`favicon.ico`**](file:///c:/Users/hp/Desktop/Notes-app/favicon.ico) & [**`apple-touch-icon.png`**](file:///c:/Users/hp/Desktop/Notes-app/apple-touch-icon.png): Multi-resolution device and browser tab icons (16x16, 32x32, 48x48, 180x180, 512x512).
 - [**`config.js`**](file:///c:/Users/hp/Desktop/Notes-app/config.js): Stores the Supabase project URL and anon publishable key safely for client-side execution.
 - [**`app.js`**](file:///c:/Users/hp/Desktop/Notes-app/app.js): Contains all application logic: Supabase client initialization, email auth and Google OAuth handlers, CRUD notes management, file attachment upload/download with private signed URLs, and file deletion.
@@ -57,3 +60,8 @@ Then visit [http://localhost:3000](http://localhost:3000) in your browser.
 6. **Per-Attachment Deletion & Note Cleanup**:
    - Each attachment has a delete button that removes the file from storage and deletes its database row.
    - When a note is deleted, all associated files are removed from Supabase storage first, then the note is deleted.
+7. **Progressive Web App (PWA) Offline & Mobile Installation**:
+   - Full Web App Manifest (`manifest.json`) configuring standalone display, orientation, theme colors, and multi-size icons.
+   - Dedicated Service Worker (`sw.js`) precaching core app shell files for instantaneous loading and offline access.
+   - Smart caching strategy: caches static assets while safely bypassing Supabase API and Auth endpoints so network operations remain completely unaffected.
+   - Installable on mobile devices (iOS via "Add to Home Screen", Android via Chrome install prompt) and desktop (Chrome / Edge app install).
