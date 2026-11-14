@@ -478,20 +478,34 @@ async function renderNoteAttachments(container, note) {
 }
 
 /**
- * Create an attachment card, using local blob URL for display (works offline).
- * Falls back to signed Supabase URL if blob is not available locally.
+ * Create an attachment card.
+ *
+ * URL resolution priority (most-offline-friendly first):
+ *   1. Local blob stored in IDB (always works offline, zero network).
+ *      We re-read from IDB here — not from the in-memory `file` object —
+ *      so we always pick up a blob that was cached after the card was first
+ *      rendered (e.g. by the background blob-caching pass).
+ *   2. Fresh Supabase signed URL (requires online; 1-hour expiry).
+ *   3. null — renders a placeholder / broken-image state.
  */
 async function createAttachmentItem(note, file, container) {
-  // Resolve display URL: prefer local blob, fall back to Supabase signed URL
-  let displayUrl = null;
-  let objectUrl  = null; // track for cleanup
+  // Always fetch the freshest record from IDB so we catch blobs that were
+  // downloaded by cacheAttachmentBlobs() after the card was first painted.
+  const freshRecord = await NotesDB.getFile(file.id).catch(() => null);
+  const liveFile    = freshRecord || file;
 
-  if (file.blob) {
-    objectUrl  = NotesDB.blobToObjectURL(file.blob);
+  let displayUrl = null;
+  let objectUrl  = null;
+
+  if (liveFile.blob) {
+    // ① Blob cached locally — works fully offline
+    objectUrl  = NotesDB.blobToObjectURL(liveFile.blob);
     displayUrl = objectUrl;
-  } else if (file.file_path && navigator.onLine) {
-    displayUrl = await getSignedAttachmentUrl(file.file_path);
+  } else if (liveFile.file_path && navigator.onLine) {
+    // ② Not cached yet — fall back to signed Supabase URL while online
+    displayUrl = await getSignedAttachmentUrl(liveFile.file_path);
   }
+  // ③ Offline + no blob cached → displayUrl stays null (placeholder shown)
 
   if (isImageFile(file.mime_type, file.file_name)) {
     const imgCard = document.createElement("div");
@@ -967,7 +981,7 @@ async function handleDeleteAttachment(note, file, itemElement, container) {
 
 
 // ============================================================================
-// 9. Supabase Signed URL Helper (online only)
+// 9. Supabase Signed URL Helper & Background Blob Cache
 // ============================================================================
 
 async function getSignedAttachmentUrl(filePath) {
@@ -978,6 +992,88 @@ async function getSignedAttachmentUrl(filePath) {
     if (error || !data) return null;
     return data.signedUrl;
   } catch { return null; }
+}
+
+/**
+ * Background Blob Caching — called after every Supabase pull.
+ *
+ * Loops through every server-synced file record that has a remote `file_path`
+ * but no locally cached `blob` yet, fetches the binary from Supabase Storage
+ * via a fresh signed URL, and writes it back into the IndexedDB record.
+ *
+ * Runs entirely in the background — never blocks the UI render.
+ * When a blob is successfully cached the corresponding note card's attachment
+ * grid is refreshed in-place so the image/PDF appears immediately.
+ *
+ * @param {object[]} serverFiles — raw rows returned from the note_files table
+ */
+async function cacheAttachmentBlobs(serverFiles) {
+  if (!navigator.onLine || !serverFiles || serverFiles.length === 0) return;
+
+  // Identify files that need a blob — synced, have a remote path, no local blob
+  const needsBlob = serverFiles.filter((f) => f.file_path && f.sync_status === "synced");
+  if (needsBlob.length === 0) return;
+
+  // Check IDB for each — only fetch the ones genuinely missing a blob
+  const toFetch = [];
+  for (const sf of needsBlob) {
+    const local = await NotesDB.getFile(sf.id);
+    if (!local || !local.blob) toFetch.push(sf);
+  }
+  if (toFetch.length === 0) return;
+
+  console.log(`[BlobCache] Fetching ${toFetch.length} attachment blob(s) in the background…`);
+
+  // Fetch each blob concurrently (capped at 4 at a time to be network-friendly)
+  const CONCURRENCY = 4;
+  for (let i = 0; i < toFetch.length; i += CONCURRENCY) {
+    const batch = toFetch.slice(i, i + CONCURRENCY);
+
+    await Promise.all(batch.map(async (sf) => {
+      try {
+        // 1. Get a fresh short-lived signed URL
+        const signedUrl = await getSignedAttachmentUrl(sf.file_path);
+        if (!signedUrl) return;
+
+        // 2. Fetch the binary
+        const response = await fetch(signedUrl);
+        if (!response.ok) return;
+
+        const blob = await response.blob();
+
+        // 3. Read the current IDB record (may have been updated since we last checked)
+        const local = await NotesDB.getFile(sf.id);
+        if (!local) return;
+
+        // 4. Write the blob back — preserve everything else
+        await NotesDB.putFile({ ...local, blob });
+
+        console.log(`[BlobCache] Cached blob for "${sf.file_name}" (${sf.id})`);
+
+        // 5. Hot-patch the in-memory note.files entry so the card re-renders
+        //    with the blob immediately, without a full list rebuild.
+        const parentNote = userNotes.find((n) => n.id === sf.note_id);
+        if (parentNote && parentNote.files) {
+          const fileEntry = parentNote.files.find((f) => f.id === sf.id);
+          if (fileEntry) {
+            fileEntry.blob = blob;
+
+            // Find the rendered card for this note and refresh only its attachments section
+            const card = notesList.querySelector(`[data-id="${sf.note_id}"]`);
+            if (card && !currentlyEditingNoteId) {
+              const attachContainer = card.querySelector(".note-attachments");
+              if (attachContainer) {
+                await renderNoteAttachments(attachContainer, parentNote);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        // Non-fatal — will retry on next pull
+        console.warn(`[BlobCache] Could not cache blob for file ${sf.id}:`, err.message);
+      }
+    }));
+  }
 }
 
 
@@ -1200,7 +1296,7 @@ async function pullFromSupabase() {
       }
     }
 
-    // Merge server files into IDB (preserve local blob)
+    // Merge server files into IDB (preserve any existing local blob)
     for (const serverFile of serverFiles) {
       const local = await NotesDB.getFile(serverFile.id);
       if (!local || local.sync_status === "synced") {
@@ -1223,6 +1319,14 @@ async function pullFromSupabase() {
     if (!currentlyEditingNoteId) {
       await renderNotesList();
     }
+
+    // ── Background blob caching ──────────────────────────────────────────────
+    // After the UI has already rendered from IDB, kick off a background pass
+    // that downloads any remote attachment blobs not yet cached locally.
+    // This is intentionally NOT awaited so it never delays the UI.
+    cacheAttachmentBlobs(serverFiles).catch((err) =>
+      console.warn("[BlobCache] Background cache pass failed:", err)
+    );
   } catch (err) {
     console.warn("[Sync] Pull from Supabase failed:", err.message);
   }
